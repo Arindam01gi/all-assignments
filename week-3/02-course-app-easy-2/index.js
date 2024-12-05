@@ -20,8 +20,8 @@ const authenticateJwt = (req,res,next) =>{
   const authHeaders = req.headers.authorization
 
   if(authHeaders){
-    // const token = authHeader.split(' ')[1];
-    const token = authHeaders;
+    const token = authHeaders.split(' ')[1];
+    // const token = authHeaders;
     jwt.verify(token,secret_key,(err,data)=>{
       if(err){
         res.status(403)
@@ -83,7 +83,8 @@ app.put('/admin/courses/:courseId', authenticateJwt, (req, res) => {
 
     const courseIndex = COURSES.findIndex(c=> c.id === id)
     if(courseIndex != -1){
-      const updatedCourse = Object.assign(courseIndex,req.body)
+      const updatedCourse = { ...COURSES[courseIndex], ...req.body };
+      COURSES[courseIndex] = updatedCourse
       res.json({message:"Course updated successfully"})
     }else{
       res.status(404).send({message:"Course not found"})
@@ -124,16 +125,55 @@ app.post('/users/login', (req, res) => {
 
 });
 
-app.get('/users/courses', (req, res) => {
+app.get('/users/courses', authenticateJwt, (req, res) => {
   // logic to list all courses
+  const publishedCourse = []
+  for(let i =0;i<COURSES.length;i++){
+    if(COURSES[i].published){
+      publishedCourse.push(COURSES[i])
+    }
+  }
+  res.json({courses:publishedCourse})
+
 });
 
 app.post('/users/courses/:courseId', (req, res) => {
   // logic to purchase a course
+  const courseId = parseInt(req.params.courseId)
+  const course = COURSES.find(c=>c.id === courseId)
+  if (course){
+    console.log("req",req)
+    const user = USERS.find(u=>u.username === req.user.username)
+
+    if(user){
+      if(!user.purchasedCourse){
+        user.purhcasedCourse = []
+      }else{
+        user.purchasedCourse.push(course)
+        res.send({message:"Course added successfully", courses: purchasedCourse})
+      }
+    }else{
+      res.status(403).send({message:"User not found"})
+    }
+
+  }else{
+    res.status(403).send({message:'Course not found'})
+  }
 });
 
-app.get('/users/purchasedCourses', (req, res) => {
+app.get('/users/purchasedCourses',authenticateJwt, (req, res) => {
   // logic to view purchased courses
+  const user = USERS.find(u => u.username === req.user.username)
+  if(user){
+    if(user.purchasedCourse!=-1){
+      res.status(200).send({courses:user.purchasedCourse})
+   }else{
+     res.status(200).send({courses:[]})
+   }
+  }else{
+    res.status(403).send({message:"User not found"})
+  }
+
 });
 
 app.listen(3000, () => {
